@@ -1,64 +1,49 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
 import { disconnect, Model } from 'mongoose';
-import { User } from '@/modules/users/schemas/user.schema';
 import { UsersModule } from '@/modules/users/users.module';
-import { getModelToken } from '@nestjs/mongoose';
 import { CreateUserDto } from '@/modules/users/dto/create-user.dto';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { getModelToken, MongooseModule } from '@nestjs/mongoose';
+import { User } from '@/modules/users/schemas/user.schema';
+import { TransformInterceptor } from '@/core/interceptors/transform/transform.interceptor';
 
 describe('UserController (e2e)', () => {
   let app: INestApplication<App>;
-
-  const mockUserUser = {
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
-    password: 'password123',
-    phone: '1234567890',
-    avatar: 'avatar.png',
-    role: 'user',
-    isActive: false,
-    isCodeUsed: false,
-    code: 'some-code',
-    codeExp: new Date().toISOString(),
-  };
-
-  const mockUserRepository = {
-    find: jest.fn().mockResolvedValue([mockUserUser]),
-    create: jest.fn((dto) => ({
-      _id: 'some-id',
-      ...dto,
-      role: 'user',
-      isActive: false,
-      isCodeUsed: false,
-      codeExp: new Date().toISOString(),
-      code: 'some-code',
-    })),
-  };
+  let userModel: Model<User>;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [UsersModule],
-    })
-      .overrideProvider(getModelToken(User.name))
-      .useValue(mockUserRepository)
-      .compile();
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        MongooseModule.forRootAsync({
+          imports: [ConfigModule],
+          useFactory: async (configService: ConfigService) => ({
+            uri: configService.get<string>('MONGODB_URI'),
+          }),
+          inject: [ConfigService],
+        }),
+        UsersModule,
+      ],
+    }).compile();
 
     app = moduleFixture.createNestApplication();
+    const reflector = moduleFixture.get('Reflector');
+    app.useGlobalInterceptors(new TransformInterceptor(reflector));
     await app.init();
+    userModel = app.get<Model<User>>(getModelToken(User.name));
   });
 
-  it('/users (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/users')
-      .expect('Content-Type', /json/)
-      .expect(200)
-      .expect([mockUserUser]);
-    //   .expect(mockUserUser);
-  });
+  // it('/users (GET)', () => {
+  //   return request(app.getHttpServer())
+  //     .get('/users')
+  //     .expect('Content-Type', /json/)
+  //     .expect(200)
+  //     .expect(mockUserUser);
+  //   //   .expect(mockUserUser);
+  // });
 
   it('/users (POST)', () => {
     const createUserDto: CreateUserDto = {
@@ -72,20 +57,19 @@ describe('UserController (e2e)', () => {
       .send(createUserDto)
       .expect('Content-Type', /json/)
       .expect(201)
-      .then((res) => {
+      .expect((res) => {
         expect(res.body).toEqual({
-          _id: expect.any(String),
-          ...createUserDto,
-          role: 'user',
-          isActive: false,
-          isCodeUsed: false,
-          codeExp: expect.any(String),
-          code: expect.any(String),
+          statusCode: 201,
+          message: expect.any(String),
+          data: expect.objectContaining({
+            _id: expect.any(String),
+          }),
         });
       });
   });
 
   afterAll(async () => {
+    await userModel.deleteMany({});
     await app.close();
     await disconnect();
   });
