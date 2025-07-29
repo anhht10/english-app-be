@@ -3,21 +3,33 @@ import { UsersService } from './users.service';
 import { getModelToken } from '@nestjs/mongoose';
 import { User } from '@/modules/users/schemas/user.schema';
 import { CreateUserDto } from '@/modules/users/dto/create-user.dto';
+import { ConfigService } from '@nestjs/config';
 
 describe('UsersService', () => {
   let service: UsersService;
 
   const mockUsersService = {
     // create is like create in this.usersService.create(createUserDto);
-    create: jest.fn((dto) => ({
-      id: 'some-id',
-      ...dto,
-      role: 'user',
-      isActive: false,
-      isCodeUsed: false,
-      codeExp: new Date(),
-      code: 'some-code',
-    })),
+    create: jest.fn((dto) =>
+      Promise.resolve({
+        _id: 'some-id',
+        ...dto,
+        role: 'user',
+        isActive: false,
+        isCodeUsed: false,
+        codeExp: new Date(),
+        code: 'some-code',
+      }),
+    ),
+
+    exists: jest.fn(() => Promise.resolve(false)),
+  };
+
+  const mockConfigService = {
+    get: jest.fn((key) => {
+      if (key === 'TTL_USER_CODE') return 30;
+      return null;
+    }),
   };
 
   beforeEach(async () => {
@@ -27,6 +39,10 @@ describe('UsersService', () => {
         {
           provide: getModelToken(User.name),
           useValue: mockUsersService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();
@@ -48,14 +64,15 @@ describe('UsersService', () => {
 
     const result = await service.create(createUserDto);
     expect(result).toEqual({
-      id: expect.any(String),
-      ...createUserDto,
-      role: 'user',
-      isActive: false,
-      isCodeUsed: false,
-      codeExp: expect.any(Date),
-      code: expect.any(String),
+      _id: expect.any(String),
     });
-    expect(mockUsersService.create).toHaveBeenCalledWith(createUserDto);
+    expect(mockUsersService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: createUserDto.email,
+        firstName: createUserDto.firstName,
+        lastName: createUserDto.lastName,
+        password: expect.any(String), // hashed password
+      }),
+    );
   });
 });

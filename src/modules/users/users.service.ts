@@ -1,19 +1,45 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model } from 'mongoose';
 import { User } from '@/modules/users/schemas/user.schema';
+import { hashPasswordHelper, randomCodeHelper } from '@/common/helpers/util';
+import dayjs from 'dayjs';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<User>) {}
+  private readonly ttlUserCode: number;
+  constructor(
+    @InjectModel(User.name) private userModel: Model<User>,
+    private configService: ConfigService,
+  ) {
+    this.ttlUserCode = this.configService.get<number>('TTL_USER_CODE') || 30;
+  }
 
   async create(createUserDto: CreateUserDto) {
-    const user = await this.userModel.create(createUserDto);
-    return user;
+    const { email, password } = createUserDto;
 
-    return `This action adds a new user with data: ${JSON.stringify(createUserDto)}`;
+    const isExisted = await this.checkExisted({ email: email });
+
+    if (!!isExisted) {
+      throw new BadRequestException('Email already exists');
+    }
+
+    const hashedPassword = await hashPasswordHelper(password);
+
+    const code = randomCodeHelper();
+
+    const user = await this.userModel.create({
+      ...createUserDto,
+      password: hashedPassword,
+      code: code,
+      codeExp: dayjs().add(this.ttlUserCode, 'minutes'),
+    });
+    return {
+      _id: user._id,
+    };
   }
 
   async findAll() {
@@ -21,8 +47,12 @@ export class UsersService {
     return users;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  async findOne(id: String) {
+    return await this.userModel.findOne({ _id: id });
+  }
+
+  async findByEmail(email: string) {
+    return await this.userModel.findOne({ email });
   }
 
   update(id: string, updateUserDto: UpdateUserDto) {
@@ -31,5 +61,9 @@ export class UsersService {
 
   remove(id: number) {
     return `This action removes a #${id} user`;
+  }
+
+  async checkExisted(condition: FilterQuery<User>) {
+    return await this.userModel.exists(condition);
   }
 }

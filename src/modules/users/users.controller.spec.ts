@@ -9,7 +9,7 @@ describe('UsersController', () => {
   const mockUsersService = {
     create: jest.fn((dto) => {
       return {
-        id: 'some-id',
+        _id: 'some-id',
         ...dto,
         role: 'user',
         isActive: false,
@@ -18,8 +18,8 @@ describe('UsersController', () => {
         code: 'some-code',
       };
     }),
-    update: jest.fn((id, dto) => ({
-      id,
+    update: jest.fn((_id, dto) => ({
+      _id,
       ...dto,
       milestoneId: 'some-milestone-id',
       role: 'user',
@@ -55,7 +55,7 @@ describe('UsersController', () => {
     };
 
     expect(controller.create(createUserDto)).toEqual({
-      id: expect.any(String),
+      _id: expect.any(String),
       ...createUserDto,
       role: 'user',
       isActive: false,
@@ -74,7 +74,7 @@ describe('UsersController', () => {
     };
 
     expect(controller.update('1', updateUserDto)).toEqual({
-      id: '1',
+      _id: '1',
       ...updateUserDto,
       role: 'user',
       milestoneId: expect.any(String),
