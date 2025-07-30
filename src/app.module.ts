@@ -9,6 +9,9 @@ import { TransformInterceptor } from '@/core/interceptors/transform/transform.in
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -18,6 +21,31 @@ import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         uri: configService.get<string>('MONGODB_URI'),
+      }),
+      inject: [ConfigService],
+    }),
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        transport: {
+          host: configService.get<string>('MAIL_HOST'),
+          secure: configService.get<boolean>('MAIL_SECURE'),
+          port: configService.get<number>('MAIL_PORT'),
+          auth: {
+            user: configService.get<string>('MAIL_USER'),
+            pass: configService.get<string>('MAIL_PASSWORD'),
+          },
+          defaults: {
+            from: configService.get<string>('MAIL_DEFAULT_FROM'),
+          },
+          template: {
+            dir: process.cwd() + '/src/common/templates/mail/',
+            adapter: new HandlebarsAdapter(),
+            options: {
+              strict: configService.get<boolean>('MAIL_TEMPLATE_STRICT'),
+            },
+          },
+        },
       }),
       inject: [ConfigService],
     }),

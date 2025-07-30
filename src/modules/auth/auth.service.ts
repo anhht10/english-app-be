@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
 import { UsersService } from '@/modules/users/users.service';
@@ -63,10 +67,16 @@ export class AuthService {
 
     await this.redisService.del(`refresh:${rt}`);
     const user = await this.usersService.findOne(userId);
-    if (!user) {
-      throw new UnauthorizedException('User not found');
+    
+    try {
+      const user = await this.usersService.findOne(userId);
+      return this.generateTokens(userId, user.email, user.role);
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        throw new UnauthorizedException('User not found');
+      }
+      throw err;
     }
-    return this.generateTokens(userId, user.email, user.role);
   }
 
   async login(user: any) {

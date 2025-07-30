@@ -22,6 +22,7 @@
     "test:e2e:watch": "jest --config ./test/jest-e2e.json --watch"
   },
   "dependencies": {
+    "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -36,6 +37,7 @@
     "class-validator": "^0.14.2",
     "cookie-parser": "^1.4.7",
     "dayjs": "^1.11.13",
+    "handlebars": "^4.7.8",
     "ioredis": "^5.6.1",
     "mongoose": "^8.16.5",
     "passport": "^0.7.0",
