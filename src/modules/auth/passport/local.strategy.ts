@@ -15,7 +15,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid credentials');
     }
     if (!user.isActive) {
-      throw new UnauthorizedException('User is not active');
+      throw new UnauthorizedException('The account is not activated yet');
     }
     return user;
   }

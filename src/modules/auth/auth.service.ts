@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
 import { UsersService } from '@/modules/users/users.service';
-import { comparePasswordHelper } from '@/common/helpers/util';
+import { comparePasswordHelper, parseDuration } from '@/common/helpers/util';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { RedisService } from '@/core/redis/redis.service';
 
 @Injectable()
 export class AuthService {
@@ -12,6 +13,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -25,15 +27,46 @@ export class AuthService {
 
   async generateTokens(_id: string, email: string, role: string) {
     const jti = crypto.randomUUID();
-    const at = await this.jwtService.sign({
-      sub: _id,
-      email,
-      role,
-      jti,
-    });
+    const [at, rt] = await Promise.all([
+      await this.jwtService.sign({
+        sub: _id,
+        email,
+        role,
+        jti,
+      }),
+      this.generateRefreshToken(_id),
+    ]);
     return {
       access_token: at,
+      refresh_token: rt,
     };
+  }
+
+  async generateRefreshToken(_id: string) {
+    const jti = crypto.randomUUID();
+    await this.redisService.set(
+      `refresh:${jti}`,
+      _id,
+      'EX',
+      parseDuration(
+        this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRED') || '1s',
+      ),
+    );
+    return jti;
+  }
+
+  async refreshToken(rt: string) {
+    const userId = await this.redisService.get(`refresh:${rt}`);
+    if (!userId) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    await this.redisService.del(`refresh:${rt}`);
+    const user = await this.usersService.findOne(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return this.generateTokens(userId, user.email, user.role);
   }
 
   async login(user: any) {
@@ -43,5 +76,24 @@ export class AuthService {
 
   async register(createAuthDto: CreateAuthDto) {
     return await this.usersService.create(createAuthDto);
+  }
+
+  async logout(token: string) {
+    const decoded = this.jwtService.decode(token);
+    if (!decoded || typeof decoded !== 'object' || !decoded['jti']) {
+      throw new UnauthorizedException('Invalid token');
+    }
+
+    const expiresAt = decoded['exp'] * 1000;
+    const ttl = expiresAt - Date.now();
+
+    if (ttl > 0) {
+      await this.redisService.set(
+        `blacklist:${decoded['jti']}`,
+        'true',
+        'PX',
+        ttl,
+      );
+    }
   }
 }
