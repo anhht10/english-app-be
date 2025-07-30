@@ -5,11 +5,14 @@ import { User } from '@/modules/users/schemas/user.schema';
 import { CreateUserDto } from '@/modules/users/dto/create-user.dto';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
+import dayjs from 'dayjs';
+import { mock } from 'node:test';
 
 describe('UsersService', () => {
   let service: UsersService;
 
   const mockUser = {
+    _id: 'some-id',
     firstName: 'John',
     lastName: 'Doe',
     email: 'john.doe@example.com',
@@ -20,15 +23,14 @@ describe('UsersService', () => {
     milestoneId: null,
     isActive: false,
     isCodeUsed: false,
-    codeExp: new Date(),
+    codeExp: dayjs().add(30, 'minutes').toDate(),
     code: 'some-code',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
 
   const mockUsersModel = {
-    // create is like create in this.usersService.create(createUserDto);
-    create: jest.fn((dto) =>
+    create: jest.fn().mockImplementation((dto) =>
       Promise.resolve({
         _id: 'some-id',
         ...dto,
@@ -41,17 +43,29 @@ describe('UsersService', () => {
         codeExp: new Date(),
         code: 'some-code',
         createdAt: new Date(),
+        updatedAt: new Date(),
       }),
     ),
+    findOne: jest.fn().mockImplementation((filter: any) => {
+      const hasValueContainingNon = Object.values(filter).some(
+        (value) => typeof value === 'string' && value.includes('non'),
+      );
 
-    findOne: jest.fn(
-      (filter: any): Promise<any> =>
-        Promise.resolve({
-          _id: filter._id,
-          ...mockUser,
-        }),
-    ),
-    exists: jest.fn(() => Promise.resolve(false)),
+      if (hasValueContainingNon) {
+        return Promise.resolve(null);
+      }
+      return Promise.resolve({
+        ...mockUser,
+        ...filter,
+      });
+    }),
+
+    updateOne: jest.fn().mockResolvedValue({
+      acknowledged: true,
+      modifiedCount: 1,
+    }),
+
+    exists: jest.fn().mockResolvedValue(false),
   };
 
   const mockConfigService = {
@@ -114,7 +128,7 @@ describe('UsersService', () => {
   });
 
   it('should throw an error if user already exists', async () => {
-    mockUsersModel.exists = jest.fn(() => Promise.resolve(true));
+    mockUsersModel.exists.mockImplementationOnce(() => Promise.resolve(true));
 
     const createUserDto: CreateUserDto = {
       firstName: mockUser.firstName,
@@ -131,8 +145,8 @@ describe('UsersService', () => {
   it('should find a user by ID', async () => {
     const user = await service.findOne('some-id');
     expect(user).toEqual({
-      _id: 'some-id',
       ...mockUser,
+      _id: 'some-id',
     });
 
     expect(mockUsersModel.findOne).toHaveBeenCalledWith(
@@ -141,27 +155,76 @@ describe('UsersService', () => {
   });
 
   it('should throw an error if user not found by ID', async () => {
-    mockUsersModel.findOne = jest.fn((filter: any) => Promise.resolve(null));
+    // mockUsersModel.findOne.mockImplementationOnce(() => Promise.resolve(null));
     await expect(service.findOne('non-existent-id')).rejects.toThrowError(
       new Error('User not found'),
     );
   });
 
-  // it('should find a user by email', async () => {
-  //   const user = await service.findByEmail('john.doe@example.com');
-  //   expect(user).toEqual(expect.any(Object));
-  //   expect(mockUsersService.findOne).toHaveBeenCalledWith({ email: 'john.doe@example.com' });
-  // });
+  it('should find a user by email', async () => {
+    const user = await service.findByEmail('john.doe@example.com');
+    expect(user).toEqual({
+      ...mockUser,
+      email: 'john.doe@example.com',
+    });
+    expect(mockUsersModel.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ email: expect.any(String) }),
+    );
+  });
 
-  // it('should activate a user', async () => {
-  //   const updateUserActiveDto = {
-  //     _id: 'some-id',
-  //     code: 'some-code',
-  //   };
-  //   const result = await service.activeUser(updateUserActiveDto);
-  //   expect(result).toEqual(expect.any(Object));
-  //   expect(mockUsersService.updateOne).toHaveBeenCalledWith
-  //     { _id: 'some-id', code: 'some-code' },
-  //     { isActive: true, isCodeUsed: true },
-  //   );
+  it('should return null if user not found by email', async () => {
+    mockUsersModel.findOne.mockImplementationOnce(() => Promise.resolve(null));
+    const user = await service.findByEmail('non-existent@example.com');
+    expect(user).toBeNull();
+  });
+
+  it('should activate a user', async () => {
+    mockUsersModel.findOne.mockImplementationOnce(() =>
+      Promise.resolve({
+        ...mockUser,
+        updateOne: jest.fn().mockResolvedValue({
+          acknowledged: true,
+          modifiedCount: 1,
+        }),
+      }),
+    );
+    const updateUserActiveDto = {
+      _id: 'some-id',
+      code: 'some-code',
+    };
+    const result = await service.activeUser(updateUserActiveDto);
+    expect(result).toEqual(expect.any(Object));
+
+    // expect(mockUsersModel.).toHaveBeenCalledWith(
+    //   { _id: 'some-id', code: 'some-code' },
+    //   { isActive: true, isCodeUsed: true },
+    // );
+  });
+
+  it('should throw an error if activation code is invalid or user not found', async () => {
+    const updateUserActiveDto = {
+      _id: 'non-existent-id',
+      code: 'invalid-code',
+    };
+    await expect(service.activeUser(updateUserActiveDto)).rejects.toThrowError(
+      new Error('Invalid code or user not found'),
+    );
+  });
+
+  it('should throw an error if activation code is expired or already used', async () => {
+    mockUsersModel.findOne.mockImplementationOnce(() =>
+      Promise.resolve({
+        ...mockUser,
+        isCodeUsed: true,
+        codeExp: dayjs().subtract(1, 'hour').toDate(),
+      }),
+    );
+    const updateUserActiveDto = {
+      _id: 'some-id',
+      code: 'some-code',
+    };
+    await expect(service.activeUser(updateUserActiveDto)).rejects.toThrowError(
+      new Error('Code expired or already used'),
+    );
+  });
 });
