@@ -4,12 +4,19 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import {
+  ActivateUserDto,
+  ChangePasswordDto,
+  ForgetPasswordDto,
+} from './dto/update-auth.dto';
 import { UsersService } from '@/modules/users/users.service';
 import { comparePasswordHelper, parseDuration } from '@/common/helpers/util';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '@/core/redis/redis.service';
+import dayjs from 'dayjs';
+import { UserCodeType } from '@/common/enums';
+import { ResetPasswordWithOtpDto } from '@/modules/users/dto/update-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -32,7 +39,7 @@ export class AuthService {
   async generateTokens(_id: string, email: string, role: string) {
     const jti = crypto.randomUUID();
     const [at, rt] = await Promise.all([
-      await this.jwtService.sign({
+      this.jwtService.sign({
         sub: _id,
         email,
         role,
@@ -66,8 +73,7 @@ export class AuthService {
     }
 
     await this.redisService.del(`refresh:${rt}`);
-    const user = await this.usersService.findOne(userId);
-    
+
     try {
       const user = await this.usersService.findOne(userId);
       return this.generateTokens(userId, user.email, user.role);
@@ -80,7 +86,7 @@ export class AuthService {
   }
 
   async login(user: any) {
-    const token = this.generateTokens(user._id, user.email, user.role);
+    const token = await this.generateTokens(user._id, user.email, user.role);
     return token;
   }
 
@@ -88,8 +94,9 @@ export class AuthService {
     return await this.usersService.create(createAuthDto);
   }
 
-  async logout(token: string) {
-    const decoded = this.jwtService.decode(token);
+  async logout(at: string, rt: string) {
+    const decoded = this.jwtService.decode(at);
+
     if (!decoded || typeof decoded !== 'object' || !decoded['jti']) {
       throw new UnauthorizedException('Invalid token');
     }
@@ -97,6 +104,7 @@ export class AuthService {
     const expiresAt = decoded['exp'] * 1000;
     const ttl = expiresAt - Date.now();
 
+    await this.redisService.del(`refresh:${rt}`);
     if (ttl > 0) {
       await this.redisService.set(
         `blacklist:${decoded['jti']}`,
@@ -105,5 +113,24 @@ export class AuthService {
         ttl,
       );
     }
+  }
+
+  async activateUser(activateUserDto: ActivateUserDto) {
+    return await this.usersService.activateUser(activateUserDto);
+  }
+
+  async forgotPassword(data: ForgetPasswordDto) {
+    return await this.usersService.sentCode({
+      email: data.email,
+      type: UserCodeType.RESET_PASSWORD,
+    });
+  }
+
+  async resetPasswordWithOtp(data: ResetPasswordWithOtpDto) {
+    return await this.usersService.resetPasswordWithOtp(data);
+  }
+
+  async changePassword(_id: string, data: ChangePasswordDto) {
+    return await this.usersService.changePassword({ id: _id, ...data });
   }
 }
