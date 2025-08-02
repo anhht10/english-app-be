@@ -6,7 +6,7 @@ import { CreateUserDto } from '@/modules/users/dto/create-user.dto';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
 import dayjs from 'dayjs';
-import { mock } from 'node:test';
+import { UserCodeType } from '@/common/enums';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -22,9 +22,12 @@ describe('UsersService', () => {
     avatar: '',
     milestoneId: null,
     isActive: false,
-    isCodeUsed: false,
-    codeExp: dayjs().add(30, 'minutes').toDate(),
-    code: 'some-code',
+    code: {
+      code: 'some-code',
+      exp: dayjs().add(30, 'minutes').toDate(),
+      isUsed: false,
+      type: 'activation',
+    },
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -39,9 +42,12 @@ describe('UsersService', () => {
         avatar: '',
         milestoneId: null,
         isActive: false,
-        isCodeUsed: false,
-        codeExp: new Date(),
-        code: 'some-code',
+        code: {
+          code: 'some-code',
+          exp: dayjs().add(30, 'minutes').toDate(),
+          isUsed: false,
+          type: 'activation',
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       }),
@@ -179,52 +185,189 @@ describe('UsersService', () => {
   });
 
   it('should activate a user', async () => {
+    const updateOne = mockUsersModel.updateOne;
     mockUsersModel.findOne.mockImplementationOnce(() =>
       Promise.resolve({
         ...mockUser,
-        updateOne: jest.fn().mockResolvedValue({
-          acknowledged: true,
-          modifiedCount: 1,
-        }),
+        updateOne: updateOne,
       }),
     );
     const updateUserActiveDto = {
       _id: 'some-id',
       code: 'some-code',
     };
-    const result = await service.activeUser(updateUserActiveDto);
+    const result = await service.activateUser(updateUserActiveDto);
     expect(result).toEqual(expect.any(Object));
 
-    // expect(mockUsersModel.).toHaveBeenCalledWith(
-    //   { _id: 'some-id', code: 'some-code' },
-    //   { isActive: true, isCodeUsed: true },
-    // );
+    expect(updateOne).toHaveBeenCalledWith({
+      $set: {
+        'code.isUsed': true,
+      },
+      isActive: true,
+    });
   });
 
   it('should throw an error if activation code is invalid or user not found', async () => {
     const updateUserActiveDto = {
       _id: 'non-existent-id',
-      code: 'invalid-code',
+      code: 'non-code',
     };
-    await expect(service.activeUser(updateUserActiveDto)).rejects.toThrowError(
-      new Error('Invalid code or user not found'),
+    await expect(
+      service.activateUser(updateUserActiveDto),
+    ).rejects.toThrowError(new Error('User not found'));
+  });
+
+  it('should throw an error if activation code is invalid', async () => {
+    mockUsersModel.findOne.mockImplementationOnce(() =>
+      Promise.resolve({
+        ...mockUser,
+        code: {
+          ...mockUser.code,
+          code: 'non-code',
+          type: 'non-activation',
+        },
+      }),
     );
+    const updateUserActiveDto = {
+      _id: 'some-id',
+      code: 'some-code',
+    };
+    await expect(
+      service.activateUser(updateUserActiveDto),
+    ).rejects.toThrowError(new Error('Invalid code'));
   });
 
   it('should throw an error if activation code is expired or already used', async () => {
     mockUsersModel.findOne.mockImplementationOnce(() =>
       Promise.resolve({
         ...mockUser,
-        isCodeUsed: true,
-        codeExp: dayjs().subtract(1, 'hour').toDate(),
+        code: {
+          ...mockUser.code,
+          exp: dayjs().subtract(1, 'hour').toDate(),
+          isUsed: true,
+        },
       }),
     );
     const updateUserActiveDto = {
       _id: 'some-id',
       code: 'some-code',
     };
-    await expect(service.activeUser(updateUserActiveDto)).rejects.toThrowError(
-      new Error('Code expired or already used'),
+    await expect(
+      service.activateUser(updateUserActiveDto),
+    ).rejects.toThrowError(new Error('Code expired or already used'));
+  });
+
+  it('should send code to user', async () => {
+    const updateOne = mockUsersModel.updateOne;
+    mockUsersModel.findOne.mockImplementationOnce(() =>
+      Promise.resolve({
+        ...mockUser,
+        updateOne: updateOne,
+      }),
     );
+
+    const sendCodeDto = {
+      email: 'john.doe@example.com',
+      type: UserCodeType.ACTIVATION,
+    };
+    const result = await service.sentCode(sendCodeDto);
+    expect(result).toEqual(expect.any(Object));
+
+    expect(mockUsersModel.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ email: sendCodeDto.email }),
+    );
+
+    expect(mockMailerService.sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: sendCodeDto.email,
+        subject: expect.any(String),
+        template: expect.any(String),
+        context: expect.objectContaining({
+          code: expect.any(String),
+        }),
+      }),
+    );
+  });
+
+  it('should throw an error if user not found when sending code', async () => {
+    const sendCodeDto = {
+      email: 'non-john.doe@example.com',
+      type: UserCodeType.ACTIVATION,
+    };
+    await expect(service.sentCode(sendCodeDto)).rejects.toThrow(
+      new Error('User not found'),
+    );
+  });
+
+  it('should throw an error if code type is activation and user is already active', async () => {
+    mockUsersModel.findOne.mockImplementationOnce(() =>
+      Promise.resolve({
+        ...mockUser,
+        isActive: true,
+        // updateOne: jest.fn(), // not really needed here
+      }),
+    );
+
+    const sendCodeDto = {
+      email: 'john.doe@example.com',
+      type: UserCodeType.ACTIVATION,
+    };
+
+    await expect(service.sentCode(sendCodeDto)).rejects.toThrowError(
+      new Error('User is already active'),
+    );
+  });
+
+  it('should reset password with OTP', async () => {
+    const updateOne = mockUsersModel.updateOne;
+    mockUsersModel.findOne.mockResolvedValueOnce({
+      ...mockUser,
+      updateOne: updateOne,
+      code: {
+        ...mockUser.code,
+        type: UserCodeType.RESET_PASSWORD,
+      },
+    });
+
+    const resetPasswordWithOtpDto = {
+      email: mockUser.email,
+      code: mockUser.code.code,
+      newPassword: 'NewPassword123!',
+    };
+
+    const result = await service.resetPasswordWithOtp(resetPasswordWithOtpDto);
+    expect(result).toEqual(expect.any(Object));
+  });
+
+  it('should throw an error if user not found when resetting password', async () => {
+    const resetPasswordWithOtpDto = {
+      email: `non-${mockUser.email}`,
+      code: mockUser.code.code,
+      newPassword: 'NewPassword123!',
+    };
+
+    await expect(
+      service.resetPasswordWithOtp(resetPasswordWithOtpDto),
+    ).rejects.toThrow(new Error('User not found'));
+  });
+
+  it('should throw an error if code is invalid when resetting password', async () => {
+    mockUsersModel.findOne.mockResolvedValueOnce({
+      ...mockUser,
+      code: {
+        ...mockUser.code,
+        type: 'other-type',
+      },
+    });
+
+    const resetPasswordWithOtpDto = {
+      email: mockUser.email,
+      code: 'invalid-code',
+      newPassword: 'NewPassword123!',
+    };
+
+    await expect(
+      service.resetPasswordWithOtp(resetPasswordWithOtpDto),
+    ).rejects.toThrow(new Error('Invalid code'));
   });
 });

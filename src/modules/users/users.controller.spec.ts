@@ -13,9 +13,12 @@ describe('UsersController', () => {
         ...dto,
         role: 'user',
         isActive: false,
-        isCodeUsed: false,
-        codeExp: new Date(),
-        code: 'some-code',
+        code: {
+          code: 'some-code',
+          exp: new Date(),
+          isUsed: false,
+          type: 'activation',
+        },
       };
     }),
     update: jest.fn((_id, dto) => ({
@@ -24,9 +27,12 @@ describe('UsersController', () => {
       milestoneId: 'some-milestone-id',
       role: 'user',
       isActive: false,
-      isCodeUsed: false,
-      codeExp: new Date(),
-      code: 'some-code',
+      code: {
+        code: 'some-code',
+        exp: new Date(),
+        isUsed: false,
+        type: 'activation',
+      },
     })),
   };
 
@@ -59,9 +65,12 @@ describe('UsersController', () => {
       ...createUserDto,
       role: 'user',
       isActive: false,
-      isCodeUsed: false,
-      codeExp: expect.any(Date),
-      code: expect.any(String),
+      code: {
+        code: expect.any(String),
+        exp: expect.any(Date),
+        isUsed: false,
+        type: 'activation',
+      },
     });
 
     expect(mockUsersService.create).toHaveBeenCalledWith(createUserDto);
@@ -79,9 +88,12 @@ describe('UsersController', () => {
       role: 'user',
       milestoneId: expect.any(String),
       isActive: expect.any(Boolean),
-      isCodeUsed: expect.any(Boolean),
-      codeExp: expect.any(Date),
-      code: expect.any(String),
+      code: {
+        code: expect.any(String),
+        exp: expect.any(Date),
+        isUsed: false,
+        type: 'activation',
+      },
     });
 
     expect(mockUsersService.update).toHaveBeenCalledWith('1', updateUserDto);

@@ -1,11 +1,5 @@
 import { UserRole } from '@/common/enums';
-import {
-  Contains,
-  IsEmail,
-  IsNotEmpty,
-  Matches,
-  MinLength,
-} from 'class-validator';
+import { IsEmail, IsNotEmpty, Matches, MinLength } from 'class-validator';
 
 export class CreateUserDto {
   @IsNotEmpty({ message: 'First name is required' })

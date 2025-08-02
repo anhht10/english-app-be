@@ -1,6 +1,6 @@
-import { UserRole } from '@/common/enums';
+import { UserCodeType, UserRole } from '@/common/enums';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class User {
@@ -24,7 +24,7 @@ export class User {
 
   @Prop({
     required: false,
-    type: Types.ObjectId,
+    type: mongoose.Schema.ObjectId,
     ref: 'Milestone',
     default: null,
   })
@@ -44,17 +44,24 @@ export class User {
   })
   isActive: boolean;
 
-  @Prop()
-  code: string;
-
   @Prop({
-    type: Boolean,
-    default: false,
+    type: {
+      code: String,
+      exp: Date,
+      isUsed: { type: Boolean, default: false },
+      type: {
+        type: String,
+        enum: UserCodeType,
+        default: UserCodeType.ACTIVATION,
+      },
+    },
   })
-  isCodeUsed: boolean;
-
-  @Prop()
-  codeExp: Date;
+  code: {
+    code: String;
+    exp: Date;
+    isUsed: boolean;
+    type: UserCodeType;
+  };
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

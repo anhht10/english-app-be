@@ -5,17 +5,23 @@ import {
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import {
-  ForgetPasswordDto,
+  ResetPasswordWithOtpDto,
+  SendCodeDto,
   UpdateUserActiveDto,
   UpdateUserDto,
 } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model } from 'mongoose';
 import { User } from '@/modules/users/schemas/user.schema';
-import { hashPasswordHelper, randomCodeHelper } from '@/common/helpers/util';
+import {
+  comparePasswordHelper,
+  hashPasswordHelper,
+  randomCodeHelper,
+} from '@/common/helpers/util';
 import dayjs from 'dayjs';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
+import { UserCodeType } from '@/common/enums';
 
 @Injectable()
 export class UsersService {
@@ -44,8 +50,10 @@ export class UsersService {
     const user = await this.userModel.create({
       ...createUserDto,
       password: hashedPassword,
-      code: code,
-      codeExp: dayjs().add(this.ttlUserCode, 'minutes'),
+      code: {
+        code,
+        exp: dayjs().add(this.ttlUserCode, 'minutes'),
+      },
     });
     return {
       _id: user._id,
@@ -75,25 +83,33 @@ export class UsersService {
     return `This action updates a #${id} user`;
   }
 
-  async activeUser(data: UpdateUserActiveDto) {
+  async activateUser(data: UpdateUserActiveDto) {
     const user = await this.userModel.findOne({
       _id: data._id,
-      code: data.code,
     });
 
     if (!user) {
-      throw new BadRequestException('Invalid code or user not found');
+      throw new BadRequestException('User not found');
     }
 
-    const isBeforeExpired = dayjs().isBefore(user.codeExp);
-    const used = user.isCodeUsed;
+    if (
+      data.code !== user.code.code ||
+      user.code.type !== UserCodeType.ACTIVATION
+    ) {
+      throw new BadRequestException('Invalid code');
+    }
+
+    const isBeforeExpired = dayjs().isBefore(user.code.exp);
+    const used = user.code.isUsed;
 
     if (!isBeforeExpired || used) {
       throw new BadRequestException('Code expired or already used');
     } else {
       if (user.isActive) {
         await this.userModel.updateOne({
-          isCodeUsed: true,
+          $set: {
+            'code.isUsed': true,
+          },
         });
         return {
           message: 'User is already active',
@@ -102,7 +118,9 @@ export class UsersService {
 
       await user.updateOne({
         isActive: true,
-        isCodeUsed: true,
+        $set: {
+          'code.isUsed': true,
+        },
       });
       return {
         message: 'User activated successfully',
@@ -110,18 +128,25 @@ export class UsersService {
     }
   }
 
-  async resentCode(email: string) {
-    const user = await this.findByEmail(email);
+  async sentCode(data: SendCodeDto) {
+    const user = await this.findByEmail(data.email);
     if (!user) {
       throw new BadRequestException('User not found');
+    }
+
+    if (user.isActive && data.type === UserCodeType.ACTIVATION) {
+      throw new BadRequestException('User is already active');
     }
 
     const code = randomCodeHelper();
 
     await user.updateOne({
-      code: code,
-      codeExp: dayjs().add(this.ttlUserCode, 'minutes'),
-      isCodeUsed: false,
+      $set: {
+        'code.code': code,
+        'code.exp': dayjs().add(this.ttlUserCode, 'minutes'),
+        'code.isUsed': false,
+        'code.type': data.type,
+      },
     });
 
     this.mailerService.sendMail({
@@ -141,17 +166,23 @@ export class UsersService {
     };
   }
 
-  async handleForgotPassword(data: ForgetPasswordDto) {
+  async resetPasswordWithOtp(data: ResetPasswordWithOtpDto) {
     const user = await this.userModel.findOne({
       email: data.email,
-      code: data.code,
     });
     if (!user) {
       throw new BadRequestException('User not found');
     }
 
-    const isBeforeExpired = dayjs().isBefore(user.codeExp);
-    const used = user.isCodeUsed;
+    if (
+      data.code !== user.code.code ||
+      user.code.type !== UserCodeType.RESET_PASSWORD
+    ) {
+      throw new BadRequestException('Invalid code');
+    }
+
+    const isBeforeExpired = dayjs().isBefore(user.code.exp);
+    const used = user.code.isUsed;
 
     if (!isBeforeExpired || used) {
       throw new BadRequestException('Code expired or already used');
@@ -160,7 +191,9 @@ export class UsersService {
 
       await user.updateOne({
         password: hashedPassword,
-        isCodeUsed: true,
+        $set: {
+          'code.isUsed': true,
+        },
       });
 
       return {
@@ -168,6 +201,27 @@ export class UsersService {
         message: 'Password updated successfully',
       };
     }
+  }
+
+  async changePassword({ id, currentPassword, newPassword }) {
+    const user = await this.userModel.findOne({ _id: id });
+    if (!user) {
+      throw new BadRequestException('Invalid credentials');
+    }
+
+    const isMatch = await comparePasswordHelper(currentPassword, user.password);
+    if (!isMatch) {
+      throw new BadRequestException('Old password is incorrect');
+    }
+
+    const hashedPassword = await hashPasswordHelper(newPassword);
+    user.updateOne({
+      password: hashedPassword,
+    });
+    return {
+      _id: user._id,
+      message: 'Password changed successfully',
+    };
   }
 
   remove(id: number) {
