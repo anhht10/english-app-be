@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+import { LearningContentsModule } from './modules/learning-contents/learning-contents.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
     UsersModule,
     MilestonesModule,
     AuthModule,
+    LearningContentsModule,
   ],
   controllers: [AppController],
   providers: [

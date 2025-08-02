@@ -1,21 +1,24 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Milestone {
   @Prop({ required: true, type: String })
-  chapterId: string;
+  chapter: string;
 
   @Prop({ required: false, type: String })
-  unitId: string;
+  unit: string;
 
   @Prop({ required: false, type: String })
-  lessonId: string;
+  lesson: string;
 
   @Prop({ required: false, type: String })
-  exerciseId: string;
+  exercise: string;
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Milestone' }], default: null })
+  @Prop({
+    type: [{ type: mongoose.Schema.ObjectId, ref: 'Milestone' }],
+    default: null,
+  })
   subMilestones: Types.ObjectId[];
 }
 
