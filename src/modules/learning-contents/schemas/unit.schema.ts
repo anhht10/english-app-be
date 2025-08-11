@@ -27,5 +27,7 @@ UnitSchema.virtual('lessons', {
   foreignField: 'unit',
 });
 
+UnitSchema.index({ chapter: 1, order: 1 }, { unique: true });
+
 UnitSchema.set('toObject', { virtuals: true });
 UnitSchema.set('toJSON', { virtuals: true });

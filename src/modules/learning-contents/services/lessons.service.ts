@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UpdateLessonDto } from '../dto/update-lesson.dto';
 import { CreateLessonDto } from '@/modules/learning-contents/dto/create-lesson.dto';
 import { InjectModel } from '@nestjs/mongoose';
@@ -16,14 +20,25 @@ export class LessonsService {
   async create(createLessonDto: CreateLessonDto) {
     const { unit } = createLessonDto;
     const existUnit = await this.unitService.exists({ _id: unit });
+
     if (!existUnit) {
       throw new NotFoundException(`Unit with ID ${unit} does not exist`);
     }
 
-    const newLesson = await this.lessonModel.create(createLessonDto);
-    return {
-      _id: newLesson._id,
-    };
+    try {
+      const newLesson = await this.lessonModel.create(createLessonDto);
+      return {
+        _id: newLesson._id,
+      };
+    } catch (error) {
+      if (error?.code === 11000 && error?.keyValue) {
+        const keys = Object.keys(error.keyValue).join(', ');
+        throw new ConflictException(
+          `Duplicate value for unique fields: ${keys}`,
+        );
+      }
+      throw error;
+    }
   }
 
   findAll() {
@@ -34,7 +49,7 @@ export class LessonsService {
     return `This action returns a #${id} lesson`;
   }
 
-  async update(id: number, updateLessonDto: UpdateLessonDto) {
+  async update(id: string, updateLessonDto: UpdateLessonDto) {
     const { unit } = updateLessonDto;
 
     if (!!unit) {
@@ -44,12 +59,22 @@ export class LessonsService {
       }
     }
 
-    const updatedLesson = await this.lessonModel.updateOne(
-      { _id: id },
-      updateLessonDto,
-    );
+    try {
+      const updatedLesson = await this.lessonModel.updateOne(
+        { _id: id },
+        updateLessonDto,
+      );
 
-    return updatedLesson;
+      return updatedLesson;
+    } catch (error) {
+      if (error.code === 11000) {
+        const keys = Object.keys(error.keyValue).join(', ');
+        throw new ConflictException(
+          `Duplicate value for unique fields: ${keys}`,
+        );
+      }
+      throw error;
+    }
   }
 
   remove(id: number) {

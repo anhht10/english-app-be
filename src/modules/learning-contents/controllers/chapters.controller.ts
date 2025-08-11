@@ -12,7 +12,6 @@ import {
   Delete,
 } from '@nestjs/common';
 
-@Public()
 @Controller('chapters')
 export class ChaptersController {
   constructor(private readonly chaptersService: ChaptersService) {}

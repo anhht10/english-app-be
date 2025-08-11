@@ -1,7 +1,7 @@
 import { CreateChapterDto } from '@/modules/learning-contents/dto/create-chapter.dto';
 import { UpdateChapterDto } from '@/modules/learning-contents/dto/update-chapter.dto';
 import { Chapter } from '@/modules/learning-contents/schemas/chapter.schema';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model } from 'mongoose';
 
@@ -12,7 +12,16 @@ export class ChaptersService {
   ) {}
 
   async create(createChapterDto: CreateChapterDto) {
+    const { order } = createChapterDto;
+
+    const exists = await this.exists({ order });
+
+    if (exists) {
+      throw new BadRequestException('Chapter with this order already exists');
+    }
+
     const chapter = await this.chapterModel.create(createChapterDto);
+
     return {
       _id: chapter._id,
     };

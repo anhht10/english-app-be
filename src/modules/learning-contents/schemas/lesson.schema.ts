@@ -17,3 +17,5 @@ export class Lesson {
 }
 
 export const LessonSchema = SchemaFactory.createForClass(Lesson);
+
+LessonSchema.index({ unit: 1, order: 1 }, { unique: true });
