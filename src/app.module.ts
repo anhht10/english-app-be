@@ -14,6 +14,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 import { LearningContentsModule } from './modules/learning-contents/learning-contents.module';
 import { NotesModule } from './modules/notes/notes.module';
 import { SlugCounterModule } from './modules/slug-counter/slug-counter.module';
+import { TodosModule } from './modules/todos/todos.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { SlugCounterModule } from './modules/slug-counter/slug-counter.module';
     LearningContentsModule,
     NotesModule,
     SlugCounterModule,
+    TodosModule,
   ],
   controllers: [AppController],
   providers: [
