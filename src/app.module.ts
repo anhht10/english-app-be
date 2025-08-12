@@ -12,6 +12,8 @@ import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { LearningContentsModule } from './modules/learning-contents/learning-contents.module';
+import { NotesModule } from './modules/notes/notes.module';
+import { SlugCounterModule } from './modules/slug-counter/slug-counter.module';
 
 @Module({
   imports: [
@@ -54,6 +56,8 @@ import { LearningContentsModule } from './modules/learning-contents/learning-con
     MilestonesModule,
     AuthModule,
     LearningContentsModule,
+    NotesModule,
+    SlugCounterModule,
   ],
   controllers: [AppController],
   providers: [

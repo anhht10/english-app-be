@@ -37,7 +37,7 @@ export class UsersService {
   async create(createUserDto: CreateUserDto) {
     const { email, password } = createUserDto;
 
-    const isExisted = await this.checkExisted({ email: email });
+    const isExisted = await this.exists({ email: email });
 
     if (!!isExisted) {
       throw new BadRequestException('Email already exists');
@@ -228,7 +228,7 @@ export class UsersService {
     return `This action removes a #${id} user`;
   }
 
-  async checkExisted(condition: FilterQuery<User>) {
+  async exists(condition: FilterQuery<User>) {
     return await this.userModel.exists(condition);
   }
 }

@@ -97,6 +97,7 @@ export class AuthService {
   async logout(at: string, rt: string) {
     const decoded = this.jwtService.decode(at);
 
+    console.log('log1', decoded);
     if (!decoded || typeof decoded !== 'object' || !decoded['jti']) {
       throw new UnauthorizedException('Invalid token');
     }
