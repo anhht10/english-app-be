@@ -1,5 +1,5 @@
 import { TodoPriority, TodoStatus } from '@/modules/todos/enum/enum';
-import { Prop, Schema } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose from 'mongoose';
 
 @Schema({ timestamps: true })
@@ -47,3 +47,5 @@ export class Todo {
   @Prop({ type: [String] })
   tags: string[];
 }
+
+export const TodoSchema = SchemaFactory.createForClass(Todo);
