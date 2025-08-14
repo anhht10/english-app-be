@@ -1,98 +1,222 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# EL App Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A scalable backend API for an English learning application, built with [NestJS](https://nestjs.com/) and TypeScript. This project provides user management, authentication, learning content, notes, milestones, todos, and more, with MongoDB and Redis integration.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Table of Contents
 
-## Description
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Folder Structure](#folder-structure)
+- [Modules](#modules)
+- [Prerequisites](#prerequisites)
+- [Project Setup](#project-setup)
+- [Environment Variables](#environment-variables)
+- [Running the Project](#running-the-project)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [API Documentation](#api-documentation)
+- [Contributing](#contributing)
+- [License](#license)
+- [Resources](#resources)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## Overview
 
-```bash
-$ pnpm install
+EL App Backend is designed to support an English learning platform, providing RESTful APIs for user management, content delivery, progress tracking, and more. It leverages NestJS for modularity and scalability, MongoDB for data storage, and Redis for caching and session management.
+
+---
+
+## Features
+
+- **User Authentication**: JWT-based login, registration, and session management.
+- **Learning Content**: CRUD APIs for chapters, units, lessons.
+- **Notes**: User notes management.
+- **Milestones**: Track learning progress.
+- **Todos**: Personal task management.
+- **Slug Counter**: Unique slug generation for resources.
+- **Mail Service**: Email notifications using Handlebars templates.
+- **Redis Integration**: For caching and session management.
+- **MongoDB Integration**: Data persistence.
+- **Validation & Interceptors**: Global validation and response transformation.
+- **Environment-based Configuration**: Easily switch between development and production.
+
+---
+
+## Architecture
+
+- **NestJS**: Modular, dependency-injected structure.
+- **MongoDB**: Main database, accessed via Mongoose.
+- **Redis**: Used for caching and session storage.
+- **Mailer**: Sends emails using SMTP and Handlebars templates.
+- **Passport**: Authentication strategies (JWT, Local).
+- **Global Pipes & Interceptors**: Validation and response formatting.
+
+---
+
+## Folder Structure
+
+```
+src/
+  app.controller.ts
+  app.module.ts
+  app.service.ts
+  main.ts
+  common/
+    enums.ts
+    decorator/
+    dto/
+    helpers/
+    templates/
+  core/
+    interceptors/
+    redis/
+  modules/
+    auth/
+    learning-contents/
+    milestones/
+    notes/
+    slug-counter/
+    todos/
+    users/
+test/
+  app.e2e-spec.ts
+  user.e2e-spec.ts
 ```
 
-## Compile and run the project
+---
+
+## Modules
+
+- **Auth**: Handles authentication, JWT, and user sessions.
+- **Users**: User CRUD and profile management.
+- **Learning Contents**: Chapters, units, lessons APIs.
+- **Notes**: User notes CRUD.
+- **Milestones**: Progress tracking.
+- **Todos**: Personal todo list.
+- **Slug Counter**: Ensures unique slugs for resources.
+- **Core/Redis**: Redis connection and utilities.
+
+---
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18+ recommended)
+- [pnpm](https://pnpm.io/) package manager
+- [MongoDB](https://www.mongodb.com/) instance
+- [Redis](https://redis.io/) instance
+
+---
+
+## Project Setup
 
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm install
 ```
 
-## Run tests
+---
+
+## Environment Variables
+
+Create a `.env` file in the root directory. Example:
+
+```env
+PORT=8080
+MONGODB_URI='mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority'
+JWT_ACCESS_TOKEN_SECRET='<your-secret>'
+JWT_ACCESS_TOKEN_EXPIRED='30d'
+JWT_REFRESH_TOKEN_EXPIRED='7d'
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=''
+MAIL_HOST='smtp.gmail.com'
+MAIL_SECURE='true'
+MAIL_PORT=465
+MAIL_USER='<your-email>'
+MAIL_PASSWORD='<your-password>'
+MAIL_DEFAULT_FROM='"No Reply" <no-reply@example.com>'
+MAIL_TEMPLATE_STRICT='true'
+```
+
+---
+
+## Running the Project
 
 ```bash
-# unit tests
-$ pnpm run test
+# Development
+pnpm run start
 
-# e2e tests
-$ pnpm run test:e2e
+# Watch mode
+pnpm run start:dev
 
-# test coverage
-$ pnpm run test:cov
+# Production
+pnpm run start:prod
 ```
+
+---
+
+## Testing
+
+```bash
+# Unit tests
+pnpm run test
+
+# End-to-end tests
+pnpm run test:e2e
+
+# Test coverage
+pnpm run test:cov
+```
+
+---
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+See [NestJS deployment docs](https://docs.nestjs.com/deployment) for best practices.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+You can deploy to AWS using [NestJS Mau](https://mau.nestjs.com):
 
 ```bash
-$ pnpm install -g mau
-$ mau deploy
+pnpm install -g mau
+mau deploy
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+## API Documentation
 
-Check out a few resources that may come in handy when working with NestJS:
+- All endpoints are prefixed with `/api`.
+- Authentication required for most endpoints (JWT).
+- See individual module controllers for detailed routes (e.g., `/api/users`, `/api/auth`, `/api/learning-contents`, etc.).
+- For full API documentation, consider using [Swagger](https://docs.nestjs.com/openapi/introduction) integration.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
+## Contributing
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+1. Fork the repository.
+2. Create your feature branch (`git checkout -b feature/fooBar`).
+3. Commit your changes (`git commit -am 'Add some fooBar'`).
+4. Push to the branch (`git push origin feature/fooBar`).
+5. Create a new Pull Request.
 
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+---
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is currently UNLICENSED. Please contact the author for usage permissions.
+
+---
+
+## Resources
+
+- [NestJS Documentation](https://docs.nestjs.com)
+- [Discord Channel](https://discord.gg/G7Qnnhy)
+- [Courses](https://courses.nestjs.com/)
+- [Devtools](https://devtools.nestjs.com)
+- [Jobs Board](https://jobs.nestjs.com)
+
+---
+
+If you need more detailed API documentation (e.g., endpoint details, request/response examples), let me know!
