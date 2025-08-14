@@ -64,3 +64,7 @@ export const parseDuration = (time: string) => {
       throw new Error('Unsupported time unit');
   }
 };
+
+export const toCamelCase = (field: string): string => {
+  return field.replace(/([_-\s]+)([a-z])/gi, (_, __, c) => c.toUpperCase());
+};
